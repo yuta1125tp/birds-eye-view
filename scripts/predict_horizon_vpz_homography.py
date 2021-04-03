@@ -27,6 +27,7 @@ from nets import vgg
 from nets import inception_v4
 from utils.transformations import rotation_matrix
 from utils.geometry import get_slope_intercept_from_abc_line
+from utils import cv2_utils
 
 tf.app.flags.DEFINE_string(
     "img_path",
@@ -124,7 +125,10 @@ def get_line_given_sphere_pointonspherenormaltoplane(sphere_centre, point):
 
 
 def get_horvpz_from_projected_4indices_modified(
-    output_label, all_bins, all_sphere_centres, all_sphere_radii
+    output_label,
+    all_bins,
+    all_sphere_centres,
+    all_sphere_radii,
 ):
     req_coords = np.zeros(4)
     input_points = np.zeros((2, 2))
@@ -159,7 +163,12 @@ def get_horvpz_from_projected_4indices_modified(
 
 
 def plot_scaled_horizonvector_vpz_picture(
-    image, horizonvector_vpz, net_dims, color="go", show_vz=False, verbose=False
+    image,
+    horizonvector_vpz,
+    net_dims,
+    color="go",
+    show_vz=False,
+    verbose=False,
 ):
     # because we are gonna rescale horizon line to these dimensions
     re_height, re_width, re_channels = image.shape
@@ -188,7 +197,10 @@ def plot_scaled_horizonvector_vpz_picture(
 
 
 def get_intrinisic_extrinsic_params_from_horizonvector_vpz(
-    img_dims, horizonvector_vpz, net_dims, verbose=False
+    img_dims,
+    horizonvector_vpz,
+    net_dims,
+    verbose=False,
 ):
     re_width, re_height = img_dims
     net_width, net_height = net_dims
@@ -341,7 +353,7 @@ def get_overhead_hmatrix_from_4cameraparams(
         height,
         width,
         overhead_hmatrix,
-        verbose=False,
+        verbose=verbose,
     )
 
     if verbose:
@@ -507,6 +519,11 @@ def modified_matrices_calculate_range_output_without_translation(
 
 
 def main(_):
+    output_dir = "output"
+    IMSHOW = False
+    verbose = True
+    os.makedirs(output_dir, exist_ok=True)
+
     if FLAGS.model_name == "vgg-16":
         net_width = 224
         net_height = 224
@@ -555,12 +572,24 @@ def main(_):
 
     img_path = FLAGS.img_path
     img_path = img_path.replace("\\", "/")
-    img_cv = cv2.imread(img_path)
+    img_cv = cv2_utils.imread(img_path)
     img_cv = cv2.cvtColor(img_cv, cv2.COLOR_BGR2RGB)
     orig_height, orig_width, orig_channels = img_cv.shape
+    cv2_utils.imwrite(
+        output_dir
+        + "/"
+        + img_path[img_path.rfind("/") + 1 : img_path.rfind(".")]
+        + "."
+        + FLAGS.model_name
+        + ".src"
+        + ".png",
+        img_cv,
+    )
 
     my_img = cv2.resize(
-        img_cv, dsize=(net_width, net_height), interpolation=cv2.INTER_CUBIC
+        img_cv,
+        dsize=(net_width, net_height),
+        interpolation=cv2.INTER_CUBIC,
     )
 
     if FLAGS.model_name == "vgg-16":
@@ -643,7 +672,18 @@ def main(_):
         show_vz=True,
         verbose=True,
     )
-    plt.show()
+    plt.savefig(
+        output_dir
+        + "/"
+        + img_path[img_path.rfind("/") + 1 : img_path.rfind(".")]
+        + "."
+        + FLAGS.model_name
+        + ".vpz"
+        + ".png"
+    )
+
+    if IMSHOW:
+        plt.show()
 
     (
         fx,
@@ -654,7 +694,7 @@ def main(_):
         img_dims=(orig_width, orig_height),
         horizonvector_vpz=estimated_input_points,
         net_dims=(net_width, net_height),
-        verbose=False,
+        verbose=verbose,
     )
 
     (
@@ -667,7 +707,7 @@ def main(_):
         my_tilt=my_tilt,
         my_roll=-radians(roll_from_horizon),
         img_dims=(orig_width, orig_height),
-        verbose=False,
+        verbose=verbose,
     )
 
     scaled_overhead_hmatrix, target_dim = get_scaled_homography(
@@ -678,16 +718,30 @@ def main(_):
         img_cv, scaled_overhead_hmatrix, dsize=target_dim, flags=cv2.INTER_CUBIC
     )
 
-    plt.imshow(warped)
-    # plt.xticks([])
-    # plt.yticks([])
-    plt.show()
-    os.makedirs("output/", exist_ok=True)
-    txt_file = (
-        "output/"
+    cv2_utils.imwrite(
+        output_dir
+        + "/"
         + img_path[img_path.rfind("/") + 1 : img_path.rfind(".")]
-        + "_homography_matrix_"
+        + "."
         + FLAGS.model_name
+        + ".dst"
+        + ".png",
+        warped,
+    )
+
+    if IMSHOW:
+        plt.imshow(warped)
+        # plt.xticks([])
+        # plt.yticks([])
+        plt.show()
+
+    txt_file = (
+        output_dir
+        + "/"
+        + img_path[img_path.rfind("/") + 1 : img_path.rfind(".")]
+        + "."
+        + FLAGS.model_name
+        + ".homography_matrix"
         + ".txt"
     )
     np.savetxt(txt_file, scaled_overhead_hmatrix)
