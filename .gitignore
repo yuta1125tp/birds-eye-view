@@ -1,2 +1,7 @@
 .idea/*
 **/*.pyc
+# user add
+/venv
+/output
+.python-version
+.vscode
