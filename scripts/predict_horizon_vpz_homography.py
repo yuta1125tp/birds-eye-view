@@ -747,6 +747,27 @@ def main(_):
     np.savetxt(txt_file, scaled_overhead_hmatrix)
     print("Homography matrix saved to the text file:", txt_file)
     print("------------------------------------------------")
+    import pickle as pkl
+    from pathlib import Path
+
+    Path(
+        output_dir
+        + "/"
+        + img_path[img_path.rfind("/") + 1 : img_path.rfind(".")]
+        + "."
+        + FLAGS.model_name
+        + ""
+        + ".pkl"
+    ).write_bytes(
+        pkl.dumps(
+            dict(
+                img_cv=img_cv,
+                estimated_input_points=estimated_input_points,
+                net_width=net_width,
+                net_height=net_height,
+            )
+        )
+    )
 
 
 if __name__ == "__main__":
